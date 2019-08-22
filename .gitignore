@@ -1,0 +1,5 @@
+*.ipynb
+*.csv
+*.xls
+*.xlsx
+/Stock check lists
