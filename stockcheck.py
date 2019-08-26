@@ -4,14 +4,26 @@
 # - Export different stock lists for each locaiton/activity
 # - Highlight items that have gone past their expiry date
 # - Highlight items realeased but not yet acceptance tested
+# - Check that number of unique items on all groups equal the total number in the starlims export list (so nothing gets missed)
+#     - Need to export list that includes missing items from both lists
+# - Quick inventory check list (just value_counts)
 #
 # ## Further goals
 # - Add in minimum stock levels and create list of items that fall below min stock
+# - Graphs:
+#     - Items expired
+#     - Items released and not accpetance tested
+#     - For each group (join some groups together (e.g. MLPA, PCR, ddPCR))
+#
+# ## Refactoring bits
+# - Create a function to do the writing to excel files and folder checks
 
 import os
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import matplotlib.pyplot as plt
+
 stocklist = pd.read_csv("20190426_starlims_testing_kit_list.csv")
 groups = pd.read_csv("groups.csv")
 
@@ -19,28 +31,91 @@ groups = pd.read_csv("groups.csv")
 stocklist['Received Date'] = pd.to_datetime(stocklist['Received Date'])
 stocklist['Expiry Date'] = pd.to_datetime(stocklist['Expiry Date'])
 #Add new column 'Expired' = 'Yes/No'
-stocklist['Expired'] = stocklist['Expiry Date'].apply(lambda x: "Yes" if x < pd.to_datetime(timenow.date()) else "No")
+stocklist['Expired'] = stocklist['Expiry Date'].apply(lambda x: "Yes" if x < pd.to_datetime(datetime.now().date()) else "No")
 
-#Create dict including each group {header : list of inventory items}
+#Create array for each group header, contents = inventory items
 group_dict = {}
 for column in groups:
     arr = np.array(groups[column])
     arr = arr[pd.notnull(arr)]
     group_dict.update({column : arr})
 
-#Loop through keys of group_dict to create new df's filtered based on their inventory items
+#Loop through keys of group_dict to create new df's filtered based on their lists
 group_dfs = {}
 group_names = list(groups)
 
 for grp in group_names:
     #do some calcs to get a dataframe called 'df'
-    group_dfs[grp] = stocklist[stocklist['Material Code'].isin(group_dict[grp])]
+    group_dfs[grp] = stocklist[stocklist['Material name'].isin(group_dict[grp])]
 
-#export list of inventory items based on each groups
+def create_pie(data, title, outdir):
+
+    if len(data.index) <= 1:
+        f=open(os.path.join(outdir, title + ' - graph error.txt'), "w+")
+        f.write('No data to create graph')
+        f.close()
+        return None
+
+    def absval(pct, allvals):
+        return int(pct/100.*np.sum(allvals))
+
+    labels = data.index
+    sizes = data
+    explode = (0, 0.1)
+
+    fig1, ax1 = plt.subplots()
+    ax1.pie(sizes, explode=explode, labels=labels, autopct=lambda pct: absval(pct, data),
+            shadow=True, startangle=90)
+    ax1.axis('equal')
+    plt.title(title + " - " + str(datetime.now().date()), fontsize=15)
+    plt.savefig(outdir + '\\' + title + '.png')
+
+#Create seperate folders for each group
+outdir = './' + str(datetime.now().date()) + ' Stock check output'
+if not os.path.exists(outdir):
+    os.mkdir(outdir)
+    for df in group_dfs:
+        os.mkdir(os.path.join(outdir, df))
+
+#Save df to their corresponding folders
 for df in group_dfs:
     outname = df + " " + str(datetime.now().date()) + '.xlsx'
-    outdir = './Stock check lists'
-    if not os.path.exists(outdir):
-        os.mkdir(outdir)
+    outdir = './' + str(datetime.now().date()) + ' Stock check output\\' + df
     fullname = os.path.join(outdir, outname)
     group_dfs[df].to_excel(fullname, sheet_name=df, index=False)
+
+#Save individual group dfs for value_counts, expired, acceptance testing
+for df in group_dfs:
+    sum_df = group_dfs[df]['Material name'].value_counts()
+    exp_df = group_dfs[df][group_dfs[df]['Expired'] == "Yes"]
+    accept_df = group_dfs[df][group_dfs[df]['Acceptance Testing'] == "No"]
+
+    sum_outname = df + " summary " + str(datetime.now().date()) + '.xlsx'
+    exp_outname = df + " expired " + str(datetime.now().date()) + '.xlsx'
+    accept_outname = df + " acceptance tested " + str(datetime.now().date()) + '.xlsx'
+
+    outdir = './' + str(datetime.now().date()) + ' Stock check output\\' + df
+    sum_df.to_excel(os.path.join(outdir, sum_outname), sheet_name=df)
+    exp_df.to_excel(os.path.join(outdir, exp_outname), sheet_name=df)
+    accept_df.to_excel(os.path.join(outdir, accept_outname), sheet_name=df)
+
+    #Generate graphs
+    create_pie(group_dfs[df]['Expired'].value_counts(), df + ' Expired', outdir)
+    create_pie(group_dfs[df]['Acceptance Testing'].value_counts(), df + ' Acceptance test', outdir)
+    create_pie(group_dfs[df]['Status'].value_counts(), df + ' Release Status', outdir)
+
+#Check to see if all inventory items are accounted for
+stocklist_check = set(stocklist['Material name'])
+groups_check = []
+for grp in groups:
+    groups_check.append(groups[grp].values)
+groups_check = np.asarray(groups_check).flatten()
+groups_check = set(groups_check[pd.notnull(groups_check)])
+
+if len(groups_check.difference(stocklist_check)) == 0 and len(stocklist_check) == len(groups_check):
+       print("All Starlims inventory items accounted for.")
+else:
+    stocklist_missing = pd.DataFrame(list(stocklist_check.difference(groups_check)), columns=["Starlims"])
+    groups_missing = pd.DataFrame(list(groups_check.difference(stocklist_check)), columns=["Groups"])
+    missing_items = pd.concat([stocklist_missing, groups_missing], axis=1)
+    missing_items.to_excel('./' + str(datetime.now().date()) + ' Stock check output/Missing Inventory.xlsx', index=False)
