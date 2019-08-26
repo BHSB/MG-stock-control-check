@@ -24,8 +24,8 @@ import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 
-stocklist = pd.read_csv("20190426_starlims_testing_kit_list.csv")
-groups = pd.read_csv("groups.csv")
+stocklist = pd.read_csv("starlims_report.csv")
+groups = pd.read_csv("inventory_groups.csv")
 
 #Convert 'Received Date' and 'Expiry Date' columns to datetime
 stocklist['Received Date'] = pd.to_datetime(stocklist['Received Date'])
@@ -101,7 +101,7 @@ for df in group_dfs:
 
     #Generate graphs
     create_pie(group_dfs[df]['Expired'].value_counts(), df + ' Expired', outdir)
-    create_pie(group_dfs[df]['Acceptance Testing'].value_counts(), df + ' Acceptance test', outdir)
+    create_pie(group_dfs[df]['Acceptance Testing'].value_counts(), df + ' Acceptance Tested', outdir)
     create_pie(group_dfs[df]['Status'].value_counts(), df + ' Release Status', outdir)
 
 #Check to see if all inventory items are accounted for
