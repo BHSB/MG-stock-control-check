@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# coding: utf-8
+
 # # Stock Control
 # - Import exported crytal report from starlims
 # - Create list of different reagents based on location/activity (e.g. level 3 cold room, ddPCR, NGS)
@@ -26,6 +29,7 @@ import matplotlib.pyplot as plt
 
 stocklist = pd.read_csv("starlims_report.csv")
 groups = pd.read_csv("inventory_groups.csv")
+min_stock = pd.read_csv("minimum_stock.csv")
 
 #Convert 'Received Date' and 'Expiry Date' columns to datetime
 stocklist['Received Date'] = pd.to_datetime(stocklist['Received Date'])
@@ -68,7 +72,7 @@ def create_pie(data, title, outdir):
             shadow=True, startangle=90)
     ax1.axis('equal')
     plt.title(title + " - " + str(datetime.now().date()), fontsize=15)
-    plt.savefig(outdir + '\\' + title + '.png')
+    plt.savefig(outdir + '//' + title + '.png')
 
 #Create seperate folders for each group
 outdir = './' + str(datetime.now().date()) + ' Stock check output'
@@ -79,8 +83,8 @@ if not os.path.exists(outdir):
 
 #Save df to their corresponding folders
 for df in group_dfs:
-    outname = df + " " + str(datetime.now().date()) + '.xlsx'
-    outdir = './' + str(datetime.now().date()) + ' Stock check output\\' + df
+    outname = df + " 1_detailed " + str(datetime.now().date()) + '.xlsx'
+    outdir = './' + str(datetime.now().date()) + ' Stock check output//' + df
     fullname = os.path.join(outdir, outname)
     group_dfs[df].to_excel(fullname, sheet_name=df, index=False)
 
@@ -90,19 +94,20 @@ for df in group_dfs:
     exp_df = group_dfs[df][group_dfs[df]['Expired'] == "Yes"]
     accept_df = group_dfs[df][group_dfs[df]['Acceptance Testing'] == "No"]
 
-    sum_outname = df + " summary " + str(datetime.now().date()) + '.xlsx'
-    exp_outname = df + " expired " + str(datetime.now().date()) + '.xlsx'
-    accept_outname = df + " acceptance tested " + str(datetime.now().date()) + '.xlsx'
+    sum_outname = df + " 2_summary " + str(datetime.now().date()) + '.xlsx'
+    exp_outname = df + " 3_expired " + str(datetime.now().date()) + '.xlsx'
+    accept_outname = df + " 4_acceptance tested " + str(datetime.now().date()) + '.xlsx'
 
-    outdir = './' + str(datetime.now().date()) + ' Stock check output\\' + df
+    outdir = './' + str(datetime.now().date()) + ' Stock check output//' + df
     sum_df.to_excel(os.path.join(outdir, sum_outname), sheet_name=df)
     exp_df.to_excel(os.path.join(outdir, exp_outname), sheet_name=df)
     accept_df.to_excel(os.path.join(outdir, accept_outname), sheet_name=df)
 
     #Generate graphs
     create_pie(group_dfs[df]['Expired'].value_counts(), df + ' Expired', outdir)
-    create_pie(group_dfs[df]['Acceptance Testing'].value_counts(), df + ' Acceptance Tested', outdir)
+    create_pie(group_dfs[df]['Acceptance Testing'].value_counts(), df + ' Acceptance test', outdir)
     create_pie(group_dfs[df]['Status'].value_counts(), df + ' Release Status', outdir)
+    create_pie(group_dfs[df][group_dfs[df]['Status'] == "Released"]['Acceptance Testing'].value_counts(), df + ' Acceptance test (Released)', outdir)
 
 #Check to see if all inventory items are accounted for
 stocklist_check = set(stocklist['Material name'])
@@ -115,7 +120,16 @@ groups_check = set(groups_check[pd.notnull(groups_check)])
 if len(groups_check.difference(stocklist_check)) == 0 and len(stocklist_check) == len(groups_check):
        print("All Starlims inventory items accounted for.")
 else:
-    stocklist_missing = pd.DataFrame(list(stocklist_check.difference(groups_check)), columns=["Starlims"])
-    groups_missing = pd.DataFrame(list(groups_check.difference(stocklist_check)), columns=["Groups"])
+    stocklist_missing = pd.DataFrame(list(stocklist_check.difference(groups_check)), columns=["Input"])
+    groups_missing = pd.DataFrame(list(groups_check.difference(stocklist_check)), columns=["Starlims"])
     missing_items = pd.concat([stocklist_missing, groups_missing], axis=1)
     missing_items.to_excel('./' + str(datetime.now().date()) + ' Stock check output/Missing Inventory.xlsx', index=False)
+
+#merge value_counts for each item and minimum stock/reorder data
+stock_count = stocklist['Material name'].value_counts().to_frame('counts').reset_index().rename(columns={'index':'Material name'})
+stock_count = pd.merge(stock_count, min_stock, on='Material name')
+stock_count['OrderNow'] = stock_count['counts'] < stock_count['MinStock']
+#export complete list
+stock_count.to_excel('./' + str(datetime.now().date()) + ' Stock check output/Complete stock count.xlsx', index=False)
+#export list of items that have less items than minimum stock
+stock_count[stock_count['OrderNow'] == True].to_excel('./' + str(datetime.now().date()) + ' Stock check output/Low stock.xlsx', index=False)
