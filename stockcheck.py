@@ -94,15 +94,21 @@ for df in group_dfs:
     sum_df = group_dfs[df]['Material name'].value_counts()
     exp_df = group_dfs[df][group_dfs[df]['Expired'] == "Yes"]
     accept_df = group_dfs[df][group_dfs[df]['Acceptance Testing'] == "No"]
+    #Reset summary df index, rename columns, merge min_stock data and create new 'OrderNow' column
+    sum_df_reset = sum_df.reset_index().rename(columns={'index':'Material name', 'Material name':'Counts'})
+    min_stock_df = pd.merge(sum_df_reset, min_stock, on="Material name")
+    min_stock_df['OrderNow'] = min_stock_df['Counts'] < min_stock_df['MinStock']
 
     sum_outname = df + " 2_summary " + str(datetime.now().date()) + '.xlsx'
     exp_outname = df + " 3_expired " + str(datetime.now().date()) + '.xlsx'
     accept_outname = df + " 4_acceptance tested " + str(datetime.now().date()) + '.xlsx'
+    min_stock_outname = df + " 5_min stock " + str(datetime.now().date()) + '.xlsx'
 
     outdir = './' + str(datetime.now().date()) + ' Stock check output//' + df
     sum_df.to_excel(os.path.join(outdir, sum_outname), sheet_name=df)
     exp_df.to_excel(os.path.join(outdir, exp_outname), sheet_name=df)
     accept_df.to_excel(os.path.join(outdir, accept_outname), sheet_name=df)
+    min_stock_df[min_stock_df['OrderNow'] == True].to_excel(os.path.join(outdir, min_stock_outname), sheet_name=df)
 
     #Generate graphs
     create_pie(group_dfs[df]['Expired'].value_counts(), df + ' Expired', outdir)
