@@ -21,15 +21,16 @@
 # ## Refactoring bits
 # - Create a function to do the writing to excel files and folder checks
 
+
 import os
 import pandas as pd
 import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 
-stocklist = pd.read_csv("starlims_report.csv")
-groups = pd.read_csv("inventory_groups.csv")
-min_stock = pd.read_csv("minimum_stock.csv")
+stocklist = pd.read_csv("starlims_report.csv", encoding = "ISO-8859-1")
+groups = pd.read_csv("inventory_groups.csv", encoding = "ISO-8859-1")
+min_stock = pd.read_csv("minimum_stock.csv", encoding = "ISO-8859-1")
 
 #Convert 'Received Date' and 'Expiry Date' columns to datetime
 stocklist['Received Date'] = pd.to_datetime(stocklist['Received Date'])
