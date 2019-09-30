@@ -32,11 +32,18 @@ stocklist = pd.read_csv("starlims_report.csv", encoding = "ISO-8859-1")
 groups = pd.read_csv("inventory_groups.csv", encoding = "ISO-8859-1")
 min_stock = pd.read_csv("minimum_stock.csv", encoding = "ISO-8859-1")
 
+#Rename used column headers
+stocklist.rename(columns={'MATCODE':'Material Code', 'MATNAME':'Material name', \
+'INVENTORYID':'Inv ID', 'LOCATION_CODE':'Location', 'LOTNO':'Lot Number', \
+'CATNO':'Catelogue Number', 'RECEIVE_DA':'Received Date', 'EXPIRE_DAT':'Expiry Date', \
+'SUPPCODE':'Supplier Code','STATUS':'Status','BREAKCAS':'Acceptance Tested'}, inplace=True)
+
 #Convert 'Received Date' and 'Expiry Date' columns to datetime
 stocklist['Received Date'] = pd.to_datetime(stocklist['Received Date'])
 stocklist['Expiry Date'] = pd.to_datetime(stocklist['Expiry Date'])
 #Add new column 'Expired' = 'Yes/No'
 stocklist['Expired'] = stocklist['Expiry Date'].apply(lambda x: "Yes" if x < pd.to_datetime(datetime.now().date()) else "No")
+stocklist['Acceptance Tested'].apply(lambda x: "Yes" if x.startswith("Y") else "No")
 
 #Create array for each group header, contents = inventory items
 group_dict = {}
@@ -93,7 +100,7 @@ for df in group_dfs:
 for df in group_dfs:
     sum_df = group_dfs[df]['Material name'].value_counts()
     exp_df = group_dfs[df][group_dfs[df]['Expired'] == "Yes"]
-    accept_df = group_dfs[df][group_dfs[df]['Acceptance Testing'] == "No"]
+    accept_df = group_dfs[df][group_dfs[df]['Acceptance Tested'] == 'No']
     #Reset summary df index, rename columns, merge min_stock data and create new 'OrderNow' column
     sum_df_reset = sum_df.reset_index().rename(columns={'index':'Material name', 'Material name':'Counts'})
     min_stock_df = pd.merge(sum_df_reset, min_stock, on="Material name")
@@ -112,9 +119,9 @@ for df in group_dfs:
 
     #Generate graphs
     create_pie(group_dfs[df]['Expired'].value_counts(), df + ' Expired', outdir)
-    create_pie(group_dfs[df]['Acceptance Testing'].value_counts(), df + ' Acceptance test', outdir)
+    create_pie(group_dfs[df]['Acceptance Tested'].value_counts(), df + ' Acceptance test', outdir)
     create_pie(group_dfs[df]['Status'].value_counts(), df + ' Release Status', outdir)
-    create_pie(group_dfs[df][group_dfs[df]['Status'] == "Released"]['Acceptance Testing'].value_counts(), df + ' Acceptance test (Released)', outdir)
+    create_pie(group_dfs[df][group_dfs[df]['Status'] == "Released"]['Acceptance Tested'].value_counts(), df + ' Acceptance test (Released)', outdir)
 
 #Check to see if all inventory items are accounted for
 stocklist_check = set(stocklist['Material name'])
