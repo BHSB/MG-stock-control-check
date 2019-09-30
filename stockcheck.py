@@ -28,9 +28,12 @@ import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 
-stocklist = pd.read_csv("starlims_report.csv", encoding = "ISO-8859-1")
+stocklist = pd.read_excel("starlims_report.xls", encoding = "ISO-8859-1")
 groups = pd.read_csv("inventory_groups.csv", encoding = "ISO-8859-1")
 min_stock = pd.read_csv("minimum_stock.csv", encoding = "ISO-8859-1")
+
+#Remove empty columns
+stocklist.dropna(axis=0, how='any', thresh=None, inplace=True)
 
 #Rename used column headers
 stocklist.rename(columns={'MATCODE':'Material Code', 'MATNAME':'Material name', \
