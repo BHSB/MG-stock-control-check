@@ -33,7 +33,7 @@ groups = pd.read_csv("inventory_groups.csv", encoding = "ISO-8859-1")
 min_stock = pd.read_csv("minimum_stock.csv", encoding = "ISO-8859-1")
 
 #Remove empty columns
-stocklist.dropna(axis=0, how='any', thresh=None, inplace=True)
+stocklist.dropna(axis=0, how='all', thresh=None, inplace=True)
 
 #Rename used column headers
 stocklist.rename(columns={'MATCODE':'Material Code', 'MATNAME':'Material name', \
@@ -46,7 +46,7 @@ stocklist['Received Date'] = pd.to_datetime(stocklist['Received Date'])
 stocklist['Expiry Date'] = pd.to_datetime(stocklist['Expiry Date'])
 #Add new column 'Expired' = 'Yes/No'
 stocklist['Expired'] = stocklist['Expiry Date'].apply(lambda x: "Yes" if x < pd.to_datetime(datetime.now().date()) else "No")
-stocklist['Acceptance Tested'].apply(lambda x: "Yes" if x.startswith("Y") else "No")
+stocklist['Acceptance Tested'] = stocklist['Acceptance Tested'].replace('Y', 'Yes').replace('N', 'No')
 
 #Create array for each group header, contents = inventory items
 group_dict = {}
