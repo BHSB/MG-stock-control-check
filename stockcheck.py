@@ -28,8 +28,11 @@ import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 
+#crystal report from starlims
 stocklist = pd.read_excel("starlims_report.xls", encoding = "ISO-8859-1")
+#User defined inventory groups. Each column is an individual group
 groups = pd.read_csv("inventory_groups.csv", encoding = "ISO-8859-1")
+#User defined minimum stock and reorder values
 min_stock = pd.read_csv("minimum_stock.csv", encoding = "ISO-8859-1")
 
 #Remove empty columns
@@ -40,6 +43,12 @@ stocklist.rename(columns={'MATCODE':'Material Code', 'MATNAME':'Material name', 
 'INVENTORYID':'Inv ID', 'LOCATION_CODE':'Location', 'LOTNO':'Lot Number', \
 'CATNO':'Catelogue Number', 'RECEIVE_DA':'Received Date', 'EXPIRE_DAT':'Expiry Date', \
 'SUPPCODE':'Supplier Code','STATUS':'Status','BREAKCAS':'Acceptance Tested'}, inplace=True)
+
+#Change all 'Material names' to lowercase remove cases typos
+stocklist['Material name'] = stocklist['Material name'].apply(lambda x: x.lower())
+groups = groups.replace(np.nan,'',regex=True)
+for column in groups.columns:
+    groups[column] = groups[column].apply(lambda x: x.lower())
 
 #Convert 'Received Date' and 'Expiry Date' columns to datetime
 stocklist['Received Date'] = pd.to_datetime(stocklist['Received Date'])
@@ -63,6 +72,7 @@ for grp in group_names:
     #do some calcs to get a dataframe called 'df'
     group_dfs[grp] = stocklist[stocklist['Material name'].isin(group_dict[grp])]
 
+
 def create_pie(data, title, outdir):
 
     if len(data.index) <= 1:
@@ -84,6 +94,7 @@ def create_pie(data, title, outdir):
     ax1.axis('equal')
     plt.title(title + " - " + str(datetime.now().date()), fontsize=15)
     plt.savefig(outdir + '//' + title + '.png')
+    plt.close()
 
 #Create seperate folders for each group
 outdir = './' + str(datetime.now().date()) + ' Stock check output'
@@ -107,7 +118,7 @@ for df in group_dfs:
     #Reset summary df index, rename columns, merge min_stock data and create new 'OrderNow' column
     sum_df_reset = sum_df.reset_index().rename(columns={'index':'Material name', 'Material name':'Counts'})
     min_stock_df = pd.merge(sum_df_reset, min_stock, on="Material name")
-    min_stock_df['OrderNow'] = min_stock_df['Counts'] < min_stock_df['MinStock']
+    min_stock_df['OrderNow'] = min_stock_df['Counts'] <= min_stock_df['MinStock']
 
     sum_outname = df + " 2_summary " + str(datetime.now().date()) + '.xlsx'
     exp_outname = df + " 3_expired " + str(datetime.now().date()) + '.xlsx'
@@ -137,15 +148,15 @@ groups_check = set(groups_check[pd.notnull(groups_check)])
 if len(groups_check.difference(stocklist_check)) == 0 and len(stocklist_check) == len(groups_check):
        print("All Starlims inventory items accounted for.")
 else:
-    stocklist_missing = pd.DataFrame(list(stocklist_check.difference(groups_check)), columns=["Input"])
-    groups_missing = pd.DataFrame(list(groups_check.difference(stocklist_check)), columns=["Starlims"])
+    stocklist_missing = pd.DataFrame(list(stocklist_check.difference(groups_check)), columns=["Not in Input File"])
+    groups_missing = pd.DataFrame(list(groups_check.difference(stocklist_check)), columns=["Not in Starlims"])
     missing_items = pd.concat([stocklist_missing, groups_missing], axis=1)
     missing_items.to_excel('./' + str(datetime.now().date()) + ' Stock check output/Missing Inventory.xlsx', index=False)
 
 #merge value_counts for each item and minimum stock/reorder data
 stock_count = stocklist['Material name'].value_counts().to_frame('counts').reset_index().rename(columns={'index':'Material name'})
 stock_count = pd.merge(stock_count, min_stock, on='Material name')
-stock_count['OrderNow'] = stock_count['counts'] < stock_count['MinStock']
+stock_count['OrderNow'] = stock_count['counts'] <= stock_count['MinStock']
 #export complete list
 stock_count.to_excel('./' + str(datetime.now().date()) + ' Stock check output/Complete stock count.xlsx', index=False)
 #export list of items that have less items than minimum stock
