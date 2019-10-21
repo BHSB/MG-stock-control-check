@@ -46,6 +46,7 @@ stocklist.rename(columns={'MATCODE':'Material Code', 'MATNAME':'Material name', 
 
 #Change all 'Material names' to lowercase remove cases typos
 stocklist['Material name'] = stocklist['Material name'].apply(lambda x: x.lower())
+min_stock['Material name'] = min_stock['Material name'].apply(lambda x: x.lower())
 groups = groups.replace(np.nan,'',regex=True)
 for column in groups.columns:
     groups[column] = groups[column].apply(lambda x: x.lower())
