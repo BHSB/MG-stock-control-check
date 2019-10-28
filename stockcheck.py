@@ -28,6 +28,42 @@ import numpy as np
 from datetime import datetime
 import matplotlib.pyplot as plt
 
+#Functions
+#---> Need to move functions into a class
+#----------------------------------------------------------------------------#
+#Add value counts as a new column in the main def
+def add_value_counts(count_series, cell):
+    #if material name equals index in count_series return counts
+    for item in count_series.iteritems():
+        if cell.lower() == item[0].lower():
+            return item[1]
+
+
+def create_pie(data, title, outdir):
+
+    if len(data.index) <= 1:
+        f=open(os.path.join(outdir, title + ' - graph error.txt'), "w+")
+        f.write('No data to create graph')
+        f.close()
+        return None
+
+    def absval(pct, allvals):
+        return int(pct/100.*np.sum(allvals))
+
+    labels = data.index
+    sizes = data
+    explode = (0, 0.1)
+
+    fig1, ax1 = plt.subplots()
+    ax1.pie(sizes, explode=explode, labels=labels, autopct=lambda pct: absval(pct, data),
+            shadow=True, startangle=90)
+    ax1.axis('equal')
+    plt.title(title + " - " + str(datetime.now().date()), fontsize=15)
+    plt.savefig(outdir + '//' + title + '.png')
+    plt.close()
+
+#----------------------------------------------------------------------------#
+
 #crystal report from starlims
 stocklist = pd.read_excel("starlims_report.xls", encoding = "ISO-8859-1")
 #User defined inventory groups. Each column is an individual group
@@ -58,6 +94,10 @@ stocklist['Expiry Date'] = pd.to_datetime(stocklist['Expiry Date'])
 stocklist['Expired'] = stocklist['Expiry Date'].apply(lambda x: "Yes" if x < pd.to_datetime(datetime.now().date()) else "No")
 stocklist['Acceptance Tested'] = stocklist['Acceptance Tested'].replace('Y', 'Yes').replace('N', 'No')
 
+#Add count columns
+vc_stocklist = stocklist['Material name'].value_counts()
+stocklist['CurrentQuantity'] = stocklist['Material name'].apply(lambda x: add_value_counts(vc_stocklist, x))
+
 #Create array for each group header, contents = inventory items
 group_dict = {}
 for column in groups:
@@ -70,32 +110,10 @@ group_dfs = {}
 group_names = list(groups)
 
 for grp in group_names:
-    #do some calcs to get a dataframe called 'df'
-    group_dfs[grp] = stocklist[stocklist['Material name'].isin(group_dict[grp])]
+    #Create df's based on inventory lists from group_dict
+    #Create copy of the df otherwise it causes errors later when trying to sort etc
+    group_dfs[grp] = stocklist[stocklist['Material name'].isin(group_dict[grp])].copy()
 
-
-def create_pie(data, title, outdir):
-
-    if len(data.index) <= 1:
-        f=open(os.path.join(outdir, title + ' - graph error.txt'), "w+")
-        f.write('No data to create graph')
-        f.close()
-        return None
-
-    def absval(pct, allvals):
-        return int(pct/100.*np.sum(allvals))
-
-    labels = data.index
-    sizes = data
-    explode = (0, 0.1)
-
-    fig1, ax1 = plt.subplots()
-    ax1.pie(sizes, explode=explode, labels=labels, autopct=lambda pct: absval(pct, data),
-            shadow=True, startangle=90)
-    ax1.axis('equal')
-    plt.title(title + " - " + str(datetime.now().date()), fontsize=15)
-    plt.savefig(outdir + '//' + title + '.png')
-    plt.close()
 
 #Create seperate folders for each group
 outdir = './' + str(datetime.now().date()) + ' Stock check output'
@@ -109,6 +127,7 @@ for df in group_dfs:
     outname = df + " 1_detailed " + str(datetime.now().date()) + '.xlsx'
     outdir = './' + str(datetime.now().date()) + ' Stock check output//' + df
     fullname = os.path.join(outdir, outname)
+    group_dfs[df].sort_values(['Location', 'Material name', 'Status', 'Acceptance Tested'], ascending=[True, True, False, False],inplace=True)
     group_dfs[df].to_excel(fullname, sheet_name=df, index=False)
 
 #Save individual group dfs for value_counts, expired, acceptance testing
