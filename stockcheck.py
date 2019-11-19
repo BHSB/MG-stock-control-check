@@ -65,7 +65,7 @@ def create_pie(data, title, outdir):
 #----------------------------------------------------------------------------#
 
 #crystal report from starlims
-stocklist = pd.read_excel("starlims_report.xls", encoding = "ISO-8859-1")
+stocklist = pd.read_excel("starlims_stock_check.xls", encoding = "ISO-8859-1")
 #User defined inventory groups. Each column is an individual group
 groups = pd.read_csv("inventory_groups.csv", encoding = "ISO-8859-1")
 #User defined minimum stock and reorder values
@@ -77,8 +77,8 @@ stocklist.dropna(axis=0, how='all', thresh=None, inplace=True)
 #Rename used column headers
 stocklist.rename(columns={'MATCODE':'Material Code', 'MATNAME':'Material name', \
 'INVENTORYID':'Inv ID', 'LOCATION_CODE':'Location', 'LOTNO':'Lot Number', \
-'CATNO':'Catelogue Number', 'RECEIVE_DA':'Received Date', 'EXPIRE_DAT':'Expiry Date', \
-'SUPPCODE':'Supplier Code','STATUS':'Status','BREAKCAS':'Acceptance Tested'}, inplace=True)
+'CATNO':'Catelogue Number', 'RECEIVE_DATE':'Received Date', 'EXPIRE_DATE':'Expiry Date', \
+'SUPPCODE':'Supplier Code','STATUS':'Status','BREAKCASE':'Acceptance Tested'}, inplace=True)
 
 #Change all 'Material names' to lowercase remove cases typos
 stocklist['Material name'] = stocklist['Material name'].apply(lambda x: x.lower())
